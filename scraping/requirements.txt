@@ -1,0 +1,8 @@
+# Gunakan fork yang masih aktif dirawat (twikit resmi rusak per 2026)
+# Install manual: pip install git+https://github.com/PawiX25/twifork.git --break-system-packages
+# Package tetap di-import sebagai "twikit" (drop-in replacement)
+
+twikit
+python-dotenv
+pandas
+tqdm
