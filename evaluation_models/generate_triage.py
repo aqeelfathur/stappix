@@ -28,7 +28,7 @@ def predict_hoax_prob(texts, tokenizer, model):
 def main():
     # 1. Path Konfigurasi (Sesuaikan dengan struktur folder aslimu)
     model_path = "classification_models/best_model_checkpoint"
-    test_data_path = "data/processed/data.csv" # Pastikan file test ini ada
+    test_data_path = "data/processed/test.csv" # Pastikan file test ini ada
     output_path = "output/scored_test_results.csv"
     
     # Buat folder output jika belum ada
@@ -57,8 +57,8 @@ def main():
     df_final = engine.process_data(
         df_test, 
         p_hoax_col='P_hoax', 
-        amp_col='Amplification_norm', # Sesuaikan jika nama kolom berbeda
-        vel_col='Velocity_norm'       # Sesuaikan jika nama kolom berbeda
+        amp_col='amplification_norm', # Sesuaikan jika nama kolom berbeda
+        vel_col='velocity_norm'       # Sesuaikan jika nama kolom berbeda
     )
     
     # 5. Simpan Hasil
