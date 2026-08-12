@@ -70,7 +70,7 @@ def main():
         pilihan_zona = st.selectbox("Filter berdasarkan Zona Triase:", ["Semua Zona", "Merah", "Kuning", "Hijau"])
         df_tampil = df[df['Zona_Triase'] == pilihan_zona] if pilihan_zona != "Semua Zona" else df
 
-        kolom_tampil = ['text', 'P_hoax', 'Amplification_norm', 'Velocity_norm', 'Risk_Score', 'Zona_Triase', 'Target_Respons']
+        kolom_tampil = ['text', 'P_hoax', 'amplification_norm', 'velocity_norm', 'Risk_Score', 'Zona_Triase', 'Target_Respons']
         st.dataframe(df_tampil[kolom_tampil], use_container_width=True, height=400, hide_index=True)
 
         st.write("---")
@@ -88,8 +88,8 @@ def main():
             st.markdown("**Detail Kalkulasi Risiko Eksak:**")
             col_a, col_b, col_c = st.columns(3)
             col_a.metric("Probabilitas Teks (IndoBERT)", f"{baris_terpilih['P_hoax']*100:.2f}%")
-            col_b.metric("Bobot Amplifikasi Aktual", f"{baris_terpilih['Amplification_norm']:.2f}")
-            col_c.metric("Bobot Velositas Aktual", f"{baris_terpilih['Velocity_norm']:.2f}")
+            col_b.metric("Bobot Amplifikasi Aktual", f"{baris_terpilih['amplification_norm']:.2f}")
+            col_c.metric("Bobot Velositas Aktual", f"{baris_terpilih['velocity_norm']:.2f}")
             
             st.markdown("**Visualisasi SHAP (Token-Level Explanation):**")
             
