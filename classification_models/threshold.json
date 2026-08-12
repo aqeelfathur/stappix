@@ -1,0 +1,59 @@
+{
+  "chosen_threshold": 0.2,
+  "sweep_table": [
+    {
+      "threshold": 0.1,
+      "recall_hoax": 0.7391,
+      "precision_hoax": 0.1382,
+      "macro_f1": 0.4978
+    },
+    {
+      "threshold": 0.15,
+      "recall_hoax": 0.7391,
+      "precision_hoax": 0.1848,
+      "macro_f1": 0.5673
+    },
+    {
+      "threshold": 0.2,
+      "recall_hoax": 0.6522,
+      "precision_hoax": 0.1899,
+      "macro_f1": 0.5773
+    },
+    {
+      "threshold": 0.25,
+      "recall_hoax": 0.6087,
+      "precision_hoax": 0.2373,
+      "macro_f1": 0.6204
+    },
+    {
+      "threshold": 0.3,
+      "recall_hoax": 0.5652,
+      "precision_hoax": 0.26,
+      "macro_f1": 0.635
+    },
+    {
+      "threshold": 0.35,
+      "recall_hoax": 0.4783,
+      "precision_hoax": 0.2558,
+      "macro_f1": 0.6268
+    },
+    {
+      "threshold": 0.4,
+      "recall_hoax": 0.4783,
+      "precision_hoax": 0.2683,
+      "macro_f1": 0.634
+    },
+    {
+      "threshold": 0.45,
+      "recall_hoax": 0.4783,
+      "precision_hoax": 0.2821,
+      "macro_f1": 0.6414
+    },
+    {
+      "threshold": 0.5,
+      "recall_hoax": 0.4348,
+      "precision_hoax": 0.2778,
+      "macro_f1": 0.6346
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "IndoBERTweet": {
+    "accuracy": 0.7411,
+    "precision_hoax": 0.1818,
+    "recall_hoax": 0.6667,
+    "macro_f1": 0.5638,
+    "pr_auc": 0.4016,
+    "confusion_matrix": [
+      [
+        213,
+        72
+      ],
+      [
+        8,
+        16
+      ]
+    ]
+  },
+  "TF-IDF + Random Forest": {
+    "accuracy": 0.9288,
+    "precision_hoax": 1.0,
+    "recall_hoax": 0.0833,
+    "macro_f1": 0.5583,
+    "pr_auc": 0.2328,
+    "confusion_matrix": [
+      [
+        285,
+        0
+      ],
+      [
+        22,
+        2
+      ]
+    ]
+  },
+  "TF-IDF + XGBoost": {
+    "accuracy": 0.8997,
+    "precision_hoax": 0.1818,
+    "recall_hoax": 0.0833,
+    "macro_f1": 0.5306,
+    "pr_auc": 0.2017,
+    "confusion_matrix": [
+      [
+        276,
+        9
+      ],
+      [
+        22,
+        2
+      ]
+    ]
+  }
+}
