@@ -1,28 +1,19 @@
 import os
 import sys
 
-# --- ANTI-DEADLOCK MACOS (Wajib di baris paling atas) ---
+# --- ULTIMATE ANTI-DEADLOCK MACOS ---
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES" 
 
 import streamlit as st
 import pandas as pd
-import shap
-from streamlit_shap import st_shap
-import torch
-
-# Batasi penggunaan thread untuk mencegah stuck di Mac
-torch.set_num_threads(1)
-
-# Injeksi path agar Streamlit bisa membaca folder 'evaluation_models'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from evaluation_models.shap_explainer import TriageExplainer
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import altair as alt
 
 # 1. Konfigurasi Halaman Dasar
 st.set_page_config(page_title="STAPPIX | Risk Triage", page_icon="🚨", layout="wide")
 
-# 2. Fungsi Memuat Data (Di-cache agar ringan)
+# 2. Fungsi Memuat Data
 @st.cache_data
 def load_data():
     file_path = "../evaluation_models/output/scored_test_results.csv"
@@ -32,9 +23,17 @@ def load_data():
         return df
     return None
 
-# 3. Fungsi Memuat Model AI & SHAP (Di-cache agar hanya dimuat 1x saat aplikasi jalan)
+# 3. Fungsi Memuat Model AI (Lazy Loading)
 @st.cache_resource
 def load_ai_explainer():
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from evaluation_models.shap_explainer import TriageExplainer
+    
+    torch.set_num_threads(1)
+    
     model_path = "../classification_models/best_model_checkpoint"
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForSequenceClassification.from_pretrained(model_path)
@@ -78,7 +77,7 @@ def main():
         
         # Pilihan Teks untuk Dianalisis
         pilihan_teks = st.selectbox(
-            "Pilih cuitan dari tabel di atas untuk membedah kontribusi kata pembentuk hoaks:",
+            "Pilih cuitan dari tabel di atas untuk membedah kontribusi kata:",
             df_tampil['text'].tolist()
         )
         
@@ -93,16 +92,50 @@ def main():
             
             st.markdown("**Visualisasi SHAP (Token-Level Explanation):**")
             
-            # Tombol Eksekusi On-Demand
             if st.button("Jalankan Mesin Interpretasi SHAP", type="primary"):
-                with st.spinner("Memuat AI dan menghitung kontribusi linguistik... (Ini memakan waktu beberapa detik)"):
+                with st.spinner("Memuat AI dan menghitung kontribusi linguistik..."):
                     try:
+                        import shap
+                        from streamlit_shap import st_shap
+                        
                         explainer_engine = load_ai_explainer()
+                        # Komputasi SHAP tingkat token (kata per kata)
                         shap_values = explainer_engine.explain_text_token_level(pilihan_teks)
                         
-                        # Merender visualisasi teks dari SHAP ke Streamlit
-                        st_shap(shap.plots.text(shap_values))
-                        st.success("Komputasi selesai! Warna merah menandakan kata yang mendorong AI memprediksi teks sebagai hoaks.")
+                        # -- EKSTRAKSI DATA SHAP UNTUK UI/UX YANG LEBIH BERSIH --
+                        tokens = shap_values.data
+                        # Mengambil nilai probabilitas kelas hoaks (indeks 1)
+                        if len(shap_values.values.shape) == 2:
+                            val = shap_values.values[:, 1]
+                        else:
+                            val = shap_values.values
+                            
+                        # Gabungkan token yang terpisah dan buang spasi kosong
+                        token_val_pairs = [{"Kata": str(t).strip(), "Beban": float(v)} for t, v in zip(tokens, val) if str(t).strip()]
+                        df_shap = pd.DataFrame(token_val_pairs)
+                        
+                        # Kelompokkan kata yang sama dan ambil yang bebannya positif (Pemicu Hoaks)
+                        df_shap = df_shap.groupby("Kata", as_index=False).sum()
+                        df_shap = df_shap[df_shap["Beban"] > 0]
+                        df_top = df_shap.sort_values(by="Beban", ascending=False).head(5)
+                        
+                        # Render Grafik Batang (Bar Chart)
+                        if not df_top.empty:
+                            st.markdown("#### 🚩 Top Kata Pemicu Hoaks")
+                            chart = alt.Chart(df_top).mark_bar(color='#ff4b4b', cornerRadiusEnd=4).encode(
+                                x=alt.X('Beban:Q', title='Besaran Pengaruh (%)', axis=alt.Axis(format='%')),
+                                y=alt.Y('Kata:N', sort='-x', title=''),
+                                tooltip=['Kata', alt.Tooltip('Beban:Q', format='.2%')]
+                            ).properties(height=250)
+                            st.altair_chart(chart, use_container_width=True)
+                        else:
+                            st.info("AI tidak menemukan kata spesifik yang kuat sebagai pemicu hoaks pada teks ini.")
+                        
+                        # Sembunyikan visualisasi bawaan yang rumit di dalam Expander
+                        with st.expander("Lihat Visualisasi Teks Lengkap (Mode Peneliti)"):
+                            st.caption("Warna merah menunjukkan kata pendorong prediksi hoaks, warna biru menunjukkan kata penahan (fakta).")
+                            st_shap(shap.plots.text(shap_values))
+                            
                     except Exception as e:
                         st.error(f"Terjadi kesalahan saat komputasi AI: {e}")
     else:
