@@ -1,10 +1,13 @@
 import os
 import sys
+import re # Tambahan untuk membersihkan token mesin
 
 # --- ULTIMATE ANTI-DEADLOCK MACOS ---
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES" 
+os.environ["USE_TF"] = "0" 
+os.environ["USE_TORCH"] = "1" 
 
 import streamlit as st
 import pandas as pd
@@ -54,7 +57,7 @@ def main():
         count_hijau = len(df[df['Zona_Triase'] == 'Hijau'])
 
         with col1:
-            st.metric(label="Total Antrean Triage", value=len(df))
+            st.metric(label="Total Antrean", value=len(df))
         with col2:
             st.metric(label="🔴 Zona Merah (Immediate)", value=count_merah)
         with col3:
@@ -70,7 +73,7 @@ def main():
         df_tampil = df[df['Zona_Triase'] == pilihan_zona] if pilihan_zona != "Semua Zona" else df
 
         kolom_tampil = ['text', 'P_hoax', 'amplification_norm', 'velocity_norm', 'Risk_Score', 'Zona_Triase', 'Target_Respons']
-        st.dataframe(df_tampil[kolom_tampil], use_container_width=True, height=400, hide_index=True)
+        st.dataframe(df_tampil[kolom_tampil], use_container_width=True, height=350, hide_index=True)
 
         st.write("---")
         st.subheader("🔍 Analisis Mendalam (Explainable AI)")
@@ -84,56 +87,71 @@ def main():
         if pilihan_teks:
             baris_terpilih = df[df['text'] == pilihan_teks].iloc[0]
             
+            # UX FIX 1: Tampilkan teks asli agar analis ingat konteksnya
+            st.info(f"**Konteks Cuitan:**\n\n_{baris_terpilih['text']}_")
+            
             st.markdown("**Detail Kalkulasi Risiko Eksak:**")
             col_a, col_b, col_c = st.columns(3)
             col_a.metric("Probabilitas Teks (IndoBERT)", f"{baris_terpilih['P_hoax']*100:.2f}%")
             col_b.metric("Bobot Amplifikasi Aktual", f"{baris_terpilih['amplification_norm']:.2f}")
             col_c.metric("Bobot Velositas Aktual", f"{baris_terpilih['velocity_norm']:.2f}")
             
-            st.markdown("**Visualisasi SHAP (Token-Level Explanation):**")
+            st.markdown("**Visualisasi SHAP (Interpretasi Semantik):**")
             
             if st.button("Jalankan Mesin Interpretasi SHAP", type="primary"):
-                with st.spinner("Memuat AI dan menghitung kontribusi linguistik..."):
+                with st.spinner("Memuat AI dan membedah struktur linguistik..."):
                     try:
                         import shap
                         from streamlit_shap import st_shap
                         
                         explainer_engine = load_ai_explainer()
-                        # Komputasi SHAP tingkat token (kata per kata)
                         shap_values = explainer_engine.explain_text_token_level(pilihan_teks)
                         
-                        # -- EKSTRAKSI DATA SHAP UNTUK UI/UX YANG LEBIH BERSIH --
                         tokens = shap_values.data
-                        # Mengambil nilai probabilitas kelas hoaks (indeks 1)
                         if len(shap_values.values.shape) == 2:
                             val = shap_values.values[:, 1]
                         else:
                             val = shap_values.values
                             
-                        # Gabungkan token yang terpisah dan buang spasi kosong
-                        token_val_pairs = [{"Kata": str(t).strip(), "Beban": float(v)} for t, v in zip(tokens, val) if str(t).strip()]
-                        df_shap = pd.DataFrame(token_val_pairs)
+                        # UX FIX 2: Pembersihan Token Mesin (Humanizing Machine Output)
+                        cleaned_pairs = []
+                        for t, v in zip(tokens, val):
+                            w = str(t).strip()
+                            # 1. Buang token spesial bawaan arsitektur Transformer
+                            if w in ['[CLS]', '[SEP]', '[PAD]', '<s>', '</s>', '<pad>']:
+                                continue
+                            # 2. Hapus imbuhan pemisah sub-kata (##) dari tokenizer
+                            w = w.replace('##', '')
+                            # 3. Abaikan token yang hanya berisi tanda baca murni
+                            if not re.search('[a-zA-Z0-9]', w):
+                                continue
+                            
+                            cleaned_pairs.append({"Kata": w.lower(), "Beban": float(v)})
+                            
+                        df_shap = pd.DataFrame(cleaned_pairs)
                         
-                        # Kelompokkan kata yang sama dan ambil yang bebannya positif (Pemicu Hoaks)
-                        df_shap = df_shap.groupby("Kata", as_index=False).sum()
-                        df_shap = df_shap[df_shap["Beban"] > 0]
-                        df_top = df_shap.sort_values(by="Beban", ascending=False).head(5)
-                        
-                        # Render Grafik Batang (Bar Chart)
-                        if not df_top.empty:
-                            st.markdown("#### 🚩 Top Kata Pemicu Hoaks")
-                            chart = alt.Chart(df_top).mark_bar(color='#ff4b4b', cornerRadiusEnd=4).encode(
-                                x=alt.X('Beban:Q', title='Besaran Pengaruh (%)', axis=alt.Axis(format='%')),
-                                y=alt.Y('Kata:N', sort='-x', title=''),
-                                tooltip=['Kata', alt.Tooltip('Beban:Q', format='.2%')]
-                            ).properties(height=250)
-                            st.altair_chart(chart, use_container_width=True)
+                        if not df_shap.empty:
+                            # Gabungkan kata yang sama (misal ada 2 kata 'rakyat' di kalimat)
+                            df_shap = df_shap.groupby("Kata", as_index=False).sum()
+                            df_shap = df_shap[df_shap["Beban"] > 0]
+                            # Ambil 5 teratas
+                            df_top = df_shap.sort_values(by="Beban", ascending=False).head(5)
+                            
+                            if not df_top.empty:
+                                st.markdown("#### 🚩 Top 5 Kata Dominan Pemicu Hoaks")
+                                chart = alt.Chart(df_top).mark_bar(color='#ff4b4b', cornerRadiusEnd=4).encode(
+                                    x=alt.X('Beban:Q', title='Besaran Pengaruh (%)', axis=alt.Axis(format='%')),
+                                    y=alt.Y('Kata:N', sort='-x', title=''),
+                                    tooltip=['Kata', alt.Tooltip('Beban:Q', format='.2%')]
+                                ).properties(height=280)
+                                st.altair_chart(chart, use_container_width=True)
+                            else:
+                                st.info("AI mendeteksi sentimen secara keseluruhan, tidak ada kata pemicu tunggal yang menonjol.")
                         else:
-                            st.info("AI tidak menemukan kata spesifik yang kuat sebagai pemicu hoaks pada teks ini.")
+                            st.info("Tidak dapat mengekstrak kata bermakna dari teks ini.")
                         
-                        # Sembunyikan visualisasi bawaan yang rumit di dalam Expander
-                        with st.expander("Lihat Visualisasi Teks Lengkap (Mode Peneliti)"):
-                            st.caption("Warna merah menunjukkan kata pendorong prediksi hoaks, warna biru menunjukkan kata penahan (fakta).")
+                        with st.expander("Lihat Visualisasi Lanjutan (SHAP Force Plot)"):
+                            st.caption("Mode peneliti: Melihat kontribusi token sebelum dibersihkan (merah = pendorong hoaks, biru = penahan/fakta).")
                             st_shap(shap.plots.text(shap_values))
                             
                     except Exception as e:
